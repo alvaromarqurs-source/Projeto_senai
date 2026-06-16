@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Perfil do Investidor</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        min-height: 100vh;
+        background: #f9fafb;
+        color: #111827;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+
+      .page {
+        min-height: 100vh;
+        padding: 32px;
+      }
+
+      .layout {
+        display: flex;
+        gap: 32px;
+        width: 100%;
+        max-width: 1152px;
+        margin: 0 auto;
+      }
+
+      .sidebar,
+      .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      }
+
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        width: 320px;
+        min-height: 720px;
+        padding: 24px;
+      }
+
+      .badge {
+        display: inline-flex;
+        width: fit-content;
+        border-radius: 999px;
+        background: #eef2ff;
+        padding: 4px 12px;
+        color: #4338ca;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 20px 0 0;
+        color: #111827;
+        font-size: 30px;
+        line-height: 1.16;
+      }
+
+      .lead {
+        margin: 12px 0 0;
+        color: #6b7280;
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .steps {
+        flex: 1;
+        margin-top: 32px;
+      }
+
+      .step {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        padding: 12px;
+      }
+
+      .step.active {
+        border-color: #c7d2fe;
+        background: #eef2ff;
+      }
+
+      .step-number {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        flex: 0 0 36px;
+        border-radius: 999px;
+        background: #f3f4f6;
+        color: #6b7280;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .step.active .step-number {
+        background: #ffffff;
+        color: #4338ca;
+        box-shadow: inset 0 0 0 2px #4f46e5;
+      }
+
+      .step-title {
+        margin: 0;
+        color: #111827;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .step-copy {
+        margin: 4px 0 0;
+        color: #6b7280;
+        font-size: 12px;
+      }
+
+      .security {
+        margin-top: 32px;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        background: #f9fafb;
+        padding: 16px;
+      }
+
+      .security strong {
+        display: block;
+        color: #111827;
+        font-size: 14px;
+      }
+
+      .security p {
+        margin: 8px 0 0;
+        color: #6b7280;
+        font-size: 12px;
+        line-height: 1.65;
+      }
+
+      .card {
+        flex: 1;
+        padding: 32px;
+      }
+
+      .header {
+        margin-bottom: 32px;
+      }
+
+      .header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .step-label {
+        margin: 0;
+        color: #4f46e5;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      h2 {
+        margin: 8px 0 0;
+        color: #111827;
+        font-size: 24px;
+      }
+
+      .field-count {
+        border-radius: 999px;
+        background: #f3f4f6;
+        padding: 4px 12px;
+        color: #4b5563;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .progress {
+        width: 100%;
+        height: 8px;
+        margin-top: 20px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #f3f4f6;
+      }
+
+      .progress div {
+        width: 16.666%;
+        height: 100%;
+        border-radius: 999px;
+        background: #4f46e5;
+      }
+
+      form {
+        display: grid;
+        gap: 20px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+      }
+
+      label {
+        margin-bottom: 8px;
+        color: #1f2937;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .input-wrap {
+        position: relative;
+      }
+
+      .icon {
+        position: absolute;
+        inset: 0 auto 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        color: #9ca3af;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        color: #374151;
+        outline: none;
+        transition:
+          border-color 0.18s ease,
+          box-shadow 0.18s ease;
+      }
+
+      input {
+        padding: 12px 16px 12px 40px;
+      }
+
+      textarea {
+        min-height: 128px;
+        resize: none;
+        padding: 12px 16px;
+      }
+
+      input:focus,
+      textarea:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .notice,
+      .success {
+        border-radius: 16px;
+        padding: 16px;
+      }
+
+      .notice {
+        border: 1px solid #e0e7ff;
+        background: #eef2ff;
+      }
+
+      .notice strong {
+        color: #312e81;
+        font-size: 14px;
+      }
+
+      .notice p {
+        margin: 8px 0 0;
+        color: #4338ca;
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .success {
+        display: none;
+        border: 1px solid #dcfce7;
+        background: #f0fdf4;
+      }
+
+      .success.visible {
+        display: block;
+      }
+
+      .success strong {
+        color: #166534;
+        font-size: 14px;
+      }
+
+      .success p {
+        margin: 4px 0 0;
+        color: #15803d;
+        font-size: 14px;
+      }
+
+      .actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding-top: 8px;
+      }
+
+      .btn {
+        cursor: pointer;
+        border-radius: 12px;
+        padding: 12px 24px;
+        font-size: 14px;
+        font-weight: 700;
+        transition:
+          background 0.18s ease,
+          border-color 0.18s ease;
+      }
+
+      .btn-secondary {
+        border: 1px solid #e5e7eb;
+        background: #ffffff;
+        color: #374151;
+      }
+
+      .btn-secondary:hover {
+        border-color: #d1d5db;
+        background: #f9fafb;
+      }
+
+      .btn-primary {
+        border: 1px solid #4f46e5;
+        background: #4f46e5;
+        color: #ffffff;
+      }
+
+      .btn-primary:hover {
+        background: #4338ca;
+      }
+
+      @media (max-width: 900px) {
+        .page {
+          padding: 16px;
+        }
+
+        .layout {
+          flex-direction: column;
+        }
+
+        .sidebar {
+          width: 100%;
+          min-height: auto;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .card {
+          padding: 24px;
+        }
+
+        .header-row,
+        .actions {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="layout">
+        <aside class="sidebar">
+          <div>
+            <span class="badge">Perfil do Investidor</span>
+            <h1>Onboarding da sua jornada financeira</h1>
+            <p class="lead">
+              Responda algumas perguntas para personalizar sua experiência e
+              deixar seu perfil pronto para a próxima etapa.
+            </p>
+          </div>
+
+          <nav class="steps" aria-label="Etapas do onboarding">
+            <div class="step active">
+              <span class="step-number">1</span>
+              <div>
+                <p class="step-title">Informações pessoais</p>
+                <p class="step-copy">Passo 1 de 6</p>
+              </div>
+            </div>
+            <div class="step">
+              <span class="step-number">2</span>
+              <div>
+                <p class="step-title">Situação financeira</p>
+                <p class="step-copy">Passo 2 de 6</p>
+              </div>
+            </div>
+            <div class="step">
+              <span class="step-number">3</span>
+              <div>
+                <p class="step-title">Objetivos</p>
+                <p class="step-copy">Passo 3 de 6</p>
+              </div>
+            </div>
+            <div class="step">
+              <span class="step-number">4</span>
+              <div>
+                <p class="step-title">Perfil de risco</p>
+                <p class="step-copy">Passo 4 de 6</p>
+              </div>
+            </div>
+            <div class="step">
+              <span class="step-number">5</span>
+              <div>
+                <p class="step-title">Revisão</p>
+                <p class="step-copy">Passo 5 de 6</p>
+              </div>
+            </div>
+            <div class="step">
+              <span class="step-number">6</span>
+              <div>
+                <p class="step-title">Conclusão</p>
+                <p class="step-copy">Passo 6 de 6</p>
+              </div>
+            </div>
+          </nav>
+
+          <div class="security">
+            <strong>Ambiente seguro</strong>
+            <p>
+              Seus dados são usados apenas para montar seu perfil inicial e
+              orientar a conversa com mais precisão.
+            </p>
+          </div>
+        </aside>
+
+        <section class="card">
+          <header class="header">
+            <div class="header-row">
+              <div>
+                <p class="step-label">Passo 1 de 6</p>
+                <h2>Informações pessoais</h2>
+              </div>
+              <span class="field-count">6 campos</span>
+            </div>
+            <div class="progress" aria-hidden="true">
+              <div></div>
+            </div>
+          </header>
+
+          <form id="investor-form">
+            <div class="field">
+              <label for="nome">Nome do usuário</label>
+              <div class="input-wrap">
+                <span class="icon">N</span>
+                <input id="nome" name="nome" type="text" placeholder="Digite seu nome completo" autocomplete="name" required />
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="cpf">CPF</label>
+              <div class="input-wrap">
+                <span class="icon">ID</span>
+                <input id="cpf" name="cpf" type="text" placeholder="000.000.000-00" inputmode="numeric" autocomplete="off" required />
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="gmail">Gmail</label>
+              <div class="input-wrap">
+                <span class="icon">@</span>
+                <input id="gmail" name="gmail" type="email" placeholder="seuemail@gmail.com" autocomplete="email" required />
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="field">
+                <label for="idade">Idade</label>
+                <div class="input-wrap">
+                  <span class="icon">18</span>
+                  <input id="idade" name="idade" type="number" min="18" placeholder="Ex.: 30" required />
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="renda">Renda atual</label>
+                <div class="input-wrap">
+                  <span class="icon">R$</span>
+                  <input id="renda" name="renda" type="text" placeholder="Ex.: R$ 5.000,00" inputmode="decimal" required />
+                </div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="dor">Dor</label>
+              <textarea id="dor" name="dor" placeholder="Qual sua maior dificuldade financeira hoje?" required></textarea>
+            </div>
+
+            <div id="success" class="success">
+              <strong>Dados recebidos com sucesso.</strong>
+              <p>O próximo passo pode ser conectado quando o fluxo completo for implementado.</p>
+            </div>
+
+            <div class="notice">
+              <strong>Por que estamos perguntando isso?</strong>
+              <p>
+                Essas informações ajudam a entender sua realidade financeira,
+                seu momento de vida e quais próximos passos fazem sentido para
+                sua jornada como investidor.
+              </p>
+            </div>
+
+            <div class="actions">
+              <button class="btn btn-secondary" type="reset">Sair</button>
+              <button class="btn btn-primary" type="submit">Continuar -&gt;</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const form = document.querySelector("#investor-form");
+      const success = document.querySelector("#success");
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        success.classList.add("visible");
+      });
+
+      form.addEventListener("reset", () => {
+        success.classList.remove("visible");
+      });
+    </script>
+  </body>
+</html>
