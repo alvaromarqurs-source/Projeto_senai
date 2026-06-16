@@ -1,22 +1,15 @@
-import * as React from "react";
+﻿import * as React from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
-  BriefcaseBusiness,
   CalendarClock,
   ChevronDown,
   CircleDollarSign,
-  Clock3,
-  Edit3,
   Goal,
   Home,
-  Landmark,
   PartyPopper,
   Plane,
-  Shield,
-  ShieldCheck,
   Target,
-  TrendingUp,
   Umbrella,
   WalletCards,
 } from "lucide-react";
@@ -24,9 +17,7 @@ import {
 import { GoalCard } from "./src/components/onboarding/GoalCard";
 import { InfoCard } from "./src/components/onboarding/InfoCard";
 import { ProgressHeader } from "./src/components/onboarding/ProgressHeader";
-import { QuestionCard } from "./src/components/onboarding/QuestionCard";
 import { ReviewCard } from "./src/components/onboarding/ReviewCard";
-import { RiskCard } from "./src/components/onboarding/RiskCard";
 import {
   OnboardingStep,
   SidebarProgress,
@@ -58,32 +49,24 @@ type GoalData = {
   preocupacao: string;
 };
 
-type RiskData = {
-  quedaMercado: "vender" | "esperar" | "comprar" | "";
-  experiencia: "nenhuma" | "basica" | "intermediaria" | "avancada" | "";
-  investimentos: string[];
-};
-
 type OnboardingData = {
   personal: PersonalData;
   financial: FinancialData;
   goals: GoalData;
-  risk: RiskData;
 };
 
 type FieldError = Partial<Record<string, string>>;
 
 const storageKey = "investor-onboarding-data";
 const maxStepKey = "investor-onboarding-max-step";
-const totalSteps = 6;
+const totalSteps = 5;
 
 const steps: OnboardingStep[] = [
   { id: 1, title: "Informações pessoais", shortTitle: "Info. pessoais" },
   { id: 2, title: "Situação financeira", shortTitle: "Sit. financeira" },
   { id: 3, title: "Objetivos", shortTitle: "Objetivos" },
-  { id: 4, title: "Perfil de risco", shortTitle: "Risco" },
-  { id: 5, title: "Revisão", shortTitle: "Revisão" },
-  { id: 6, title: "Conclusão", shortTitle: "Conclusão" },
+  { id: 4, title: "Revisão", shortTitle: "Revisão" },
+  { id: 5, title: "Conclusão", shortTitle: "Conclusão" },
 ];
 
 const initialData: OnboardingData = {
@@ -107,11 +90,6 @@ const initialData: OnboardingData = {
     prazo: 10,
     metaFinanceira: "",
     preocupacao: "",
-  },
-  risk: {
-    quedaMercado: "",
-    experiencia: "",
-    investimentos: [],
   },
 };
 
@@ -151,22 +129,6 @@ function formatCurrency(value: string) {
 
 function parseMoney(value: string) {
   return Number(value.replace(/\D/g, "")) / 100;
-}
-
-function riskProfile(data: RiskData) {
-  let score = 0;
-  if (data.quedaMercado === "esperar") score += 2;
-  if (data.quedaMercado === "comprar") score += 4;
-  if (data.experiencia === "basica") score += 1;
-  if (data.experiencia === "intermediaria") score += 2;
-  if (data.experiencia === "avancada") score += 3;
-  score += data.investimentos.filter((item) =>
-    ["acoes", "fundos", "etfs", "cripto"].includes(item),
-  ).length;
-
-  if (score <= 3) return "Conservador";
-  if (score <= 7) return "Moderado";
-  return "Arrojado";
 }
 
 function goalLabel(goal: GoalData["objetivo"]) {
@@ -211,12 +173,6 @@ function validateStep(step: number, data: OnboardingData): FieldError {
     if (!data.goals.objetivo) errors.objetivo = "Selecione um objetivo.";
     if (parseMoney(data.goals.metaFinanceira) <= 0) errors.metaFinanceira = "Informe uma meta.";
     if (!data.goals.preocupacao.trim()) errors.preocupacao = "Preencha este campo.";
-  }
-
-  if (step === 4) {
-    if (!data.risk.quedaMercado) errors.quedaMercado = "Escolha uma reação.";
-    if (!data.risk.experiencia) errors.experiencia = "Informe sua experiência.";
-    if (data.risk.investimentos.length === 0) errors.investimentos = "Selecione ao menos um item.";
   }
 
   return errors;
@@ -599,17 +555,6 @@ export default function InvestorProfileOnboarding() {
       />
     ),
     4: (
-      <StepFour
-        data={data.risk}
-        errors={errors}
-        onChange={(value) => updateData("risk", value)}
-        onBack={handleBack}
-        onNext={handleNext}
-        loading={loading}
-        isValid={!hasErrors(validateStep(4, data))}
-      />
-    ),
-    5: (
       <StepFive
         data={data}
         onEdit={goToStep}
@@ -618,7 +563,7 @@ export default function InvestorProfileOnboarding() {
         loading={loading}
       />
     ),
-    6: <StepSix data={data} onBack={() => goToStep(1)} />,
+    5: <StepSix data={data} onBack={() => goToStep(1)} />,
   }[currentStep];
 
   return (
@@ -785,87 +730,6 @@ function StepThree({
   );
 }
 
-function StepFour({
-  data,
-  errors,
-  onChange,
-  onBack,
-  onNext,
-  loading,
-  isValid,
-}: {
-  data: RiskData;
-  errors: FieldError;
-  onChange: (value: Partial<RiskData>) => void;
-  onBack: () => void;
-  onNext: () => void;
-  loading: boolean;
-  isValid: boolean;
-}) {
-  const investments = ["Tesouro Direto", "CDB", "Fundos", "Ações", "ETFs", "Cripto"];
-  const investmentKeys = ["tesouro", "cdb", "fundos", "acoes", "etfs", "cripto"];
-  const profile = riskProfile(data);
-
-  function toggleInvestment(value: string) {
-    onChange({
-      investimentos: data.investimentos.includes(value)
-        ? data.investimentos.filter((item) => item !== value)
-        : [...data.investimentos, value],
-    });
-  }
-
-  return (
-    <>
-      <ProgressHeader currentStep={4} totalSteps={totalSteps} title="Perfil de risco" badge="3 seções" />
-      <div className="space-y-5">
-        <QuestionCard title="1. Como você reagiria a uma queda de 20% nos seus investimentos?">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <RiskCard title="A) Venderia tudo" subtitle="Prefiro evitar perdas." icon={Shield} selected={data.quedaMercado === "vender"} onSelect={() => onChange({ quedaMercado: "vender" })} />
-            <RiskCard title="B) Esperaria recuperar" subtitle="Acredito no longo prazo." icon={Clock3} selected={data.quedaMercado === "esperar"} onSelect={() => onChange({ quedaMercado: "esperar" })} />
-            <RiskCard title="C) Compraria mais" subtitle="Vejo como oportunidade." icon={TrendingUp} selected={data.quedaMercado === "comprar"} onSelect={() => onChange({ quedaMercado: "comprar" })} />
-          </div>
-          <FieldErrorText error={errors.quedaMercado} />
-        </QuestionCard>
-        <QuestionCard title="2. Qual sua experiência com investimentos?">
-          <RadioGroup name="experiencia" value={data.experiencia} onChange={(experiencia) => onChange({ experiencia: experiencia as RiskData["experiencia"] })} options={[{ label: "Nenhuma", value: "nenhuma" }, { label: "Básica", value: "basica" }, { label: "Intermediária", value: "intermediaria" }, { label: "Avançada", value: "avancada" }]} error={errors.experiencia} />
-        </QuestionCard>
-        <QuestionCard title="3. Já investiu em:">
-          <div className="grid gap-3 sm:grid-cols-3">
-            {investments.map((label, index) => {
-              const key = investmentKeys[index];
-              return (
-                <label key={key} className="flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50/40">
-                  <input type="checkbox" checked={data.investimentos.includes(key)} onChange={() => toggleInvestment(key)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-                  {label}
-                </label>
-              );
-            })}
-          </div>
-          <FieldErrorText error={errors.investimentos} />
-        </QuestionCard>
-        {isValid && (
-          <section className="rounded-xl border border-indigo-100 bg-indigo-50 p-5">
-            <div className="flex items-center gap-4">
-              <ShieldCheck aria-hidden="true" className="h-12 w-12 text-indigo-600" strokeWidth={1.7} />
-              <div>
-                <p className="text-sm font-medium text-indigo-700">Seu perfil de risco é:</p>
-                <h3 className="text-2xl font-bold text-indigo-700">{profile}</h3>
-                <p className="mt-1 text-sm leading-6 text-indigo-900">
-                  {profile === "Conservador" ? "Você prioriza estabilidade e previsibilidade." : profile === "Moderado" ? "Você busca crescimento com segurança, aceitando riscos moderados." : "Você aceita oscilações maiores buscando maior retorno."}
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
-        <InfoCard>
-          Seu perfil de risco é essencial para sugerir investimentos alinhados com seu conforto e seus objetivos.
-        </InfoCard>
-        <StepNavigation onBack={onBack} onNext={onNext} nextLabel="Continuar" loading={loading} />
-      </div>
-    </>
-  );
-}
-
 function StepFive({
   data,
   onEdit,
@@ -881,7 +745,7 @@ function StepFive({
 }) {
   return (
     <>
-      <ProgressHeader currentStep={5} totalSteps={totalSteps} title="Revisão" badge="Revise seus dados" />
+      <ProgressHeader currentStep={4} totalSteps={totalSteps} title="Revisão" badge="Revise seus dados" />
       <div className="space-y-5">
         <p className="text-sm leading-6 text-slate-500">Revise suas informações antes de finalizar seu perfil.</p>
         <ReviewCard title="Informações pessoais" summary={`Nome: ${data.personal.nome || "Não informado"} • Idade: ${data.personal.idade || "--"} • Email: ${data.personal.email || "--"}`} onEdit={() => onEdit(1)}>
@@ -893,9 +757,6 @@ function StepFive({
         <ReviewCard title="Objetivos" summary={`Objetivo: ${goalLabel(data.goals.objetivo)} • Prazo: ${data.goals.prazo} anos • Meta: ${data.goals.metaFinanceira || "--"}`} onEdit={() => onEdit(3)}>
           Preocupação: {data.goals.preocupacao || "Não informado"}
         </ReviewCard>
-        <ReviewCard title="Perfil de risco" summary={`Perfil ${riskProfile(data.risk)} • Experiência: ${data.risk.experiencia || "--"}`} onEdit={() => onEdit(4)}>
-          Investimentos informados: {data.risk.investimentos.join(", ") || "Nenhum"}
-        </ReviewCard>
         <SuccessCard title="Tudo certo!">
           Confira se todas as informações estão corretas. Você poderá editar qualquer item antes de finalizar.
         </SuccessCard>
@@ -906,12 +767,11 @@ function StepFive({
 }
 
 function StepSix({ data, onBack }: { data: OnboardingData; onBack: () => void }) {
-  const profile = riskProfile(data.risk);
   const nextSteps = ["Perfil criado", "Dados analisados", "Montagem da estratégia", "Recomendações personalizadas"];
 
   return (
     <>
-      <ProgressHeader currentStep={6} totalSteps={totalSteps} title="Conclusão" badge="100%" />
+      <ProgressHeader currentStep={5} totalSteps={totalSteps} title="Conclusão" badge="100%" />
       <div className="space-y-6">
         <section className="text-center">
           <PartyPopper aria-hidden="true" className="mx-auto h-12 w-12 text-indigo-600" />
@@ -923,7 +783,7 @@ function StepSix({ data, onBack }: { data: OnboardingData; onBack: () => void })
         </section>
 
         <section className="grid gap-4 sm:grid-cols-3">
-          <SummaryTile icon={ShieldCheck} label="Perfil de risco" value={profile} />
+          <SummaryTile icon={WalletCards} label="Usuário" value={data.personal.nome || "Não informado"} />
           <SummaryTile icon={Target} label="Objetivo principal" value={goalLabel(data.goals.objetivo)} />
           <SummaryTile icon={CircleDollarSign} label="Investimento mensal" value={data.financial.investimentoMensal || "Não informado"} />
         </section>
@@ -996,3 +856,4 @@ function FeatureTile({
     </article>
   );
 }
+
