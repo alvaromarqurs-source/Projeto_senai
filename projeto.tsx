@@ -24,6 +24,7 @@ import {
 } from "./src/components/onboarding/SidebarProgress";
 import { StepNavigation } from "./src/components/onboarding/StepNavigation";
 import { SuccessCard } from "./src/components/onboarding/SuccessCard";
+import { createClient, type Client } from "./src/services/clientService";
 
 type PersonalData = {
   nome: string;
@@ -129,6 +130,39 @@ function formatCurrency(value: string) {
 
 function parseMoney(value: string) {
   return Number(value.replace(/\D/g, "")) / 100;
+}
+
+function toDecimalString(value: string) {
+  return parseMoney(value).toFixed(2);
+}
+
+function mapGoalToApiValue(goal: GoalData["objetivo"]) {
+  const labels = {
+    aposentadoria: "Aposentadoria",
+    imovel: "Imovel",
+    viajar: "Viajar",
+    renda: "Renda_passiva",
+    "": "",
+  };
+  return labels[goal];
+}
+
+function mapOnboardingToClient(data: OnboardingData): Client {
+  return {
+    nome: data.personal.nome.trim(),
+    cpf: data.personal.cpf.replace(/\D/g, ""),
+    email: data.personal.email.trim(),
+    idade: Number(data.personal.idade),
+    renda_atual: toDecimalString(data.personal.rendaAtual),
+    aporte_mensal: toDecimalString(data.financial.investimentoMensal),
+    reserva_de_emergencia: data.financial.reservaEmergencia === "sim",
+    valor_armazenado_reserva_emergencia: toDecimalString(data.financial.valorReserva),
+    possui_dividas: data.financial.possuiDividas === "sim",
+    objetivo_de_vida: mapGoalToApiValue(data.goals.objetivo),
+    tempo_estimado_retorno: data.goals.prazo,
+    valor_desejado_acumulado: toDecimalString(data.goals.metaFinanceira),
+    preocupacao_atual: data.goals.preocupacao.trim() || data.personal.dor.trim(),
+  };
 }
 
 function goalLabel(goal: GoalData["objetivo"]) {
@@ -432,6 +466,7 @@ export default function InvestorProfileOnboarding() {
   const [errors, setErrors] = React.useState<FieldError>({});
   const [validationVisible, setValidationVisible] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(data));
@@ -449,7 +484,7 @@ export default function InvestorProfileOnboarding() {
 
   React.useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (currentStep < 6) {
+      if (currentStep < totalSteps) {
         event.preventDefault();
         event.returnValue = "";
       }
@@ -461,6 +496,7 @@ export default function InvestorProfileOnboarding() {
   React.useEffect(() => {
     setValidationVisible(false);
     setErrors({});
+    setSubmitError(null);
   }, [currentStep]);
 
   React.useEffect(() => {
@@ -494,13 +530,33 @@ export default function InvestorProfileOnboarding() {
     return step <= maxUnlockedStep;
   }
 
-  function handleNext() {
+  async function handleNext() {
     const nextErrors = validateStep(currentStep, data);
     setErrors(nextErrors);
     setValidationVisible(true);
     if (hasErrors(nextErrors)) return;
 
     setLoading(true);
+    setSubmitError(null);
+
+    if (currentStep === 4) {
+      try {
+        await createClient(mapOnboardingToClient(data));
+        const nextStep = Math.min(currentStep + 1, totalSteps);
+        setMaxUnlockedStep((current) => Math.max(current, nextStep));
+        goToStep(nextStep);
+      } catch (error) {
+        setSubmitError(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível concluir o cadastro. Tente novamente.",
+        );
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     window.setTimeout(() => {
       setLoading(false);
       const nextStep = Math.min(currentStep + 1, totalSteps);
@@ -561,6 +617,7 @@ export default function InvestorProfileOnboarding() {
         onBack={handleBack}
         onNext={handleNext}
         loading={loading}
+        submitError={submitError}
       />
     ),
     5: <StepSix data={data} onBack={() => goToStep(1)} />,
@@ -736,12 +793,14 @@ function StepFive({
   onBack,
   onNext,
   loading,
+  submitError,
 }: {
   data: OnboardingData;
   onEdit: (step: number) => void;
   onBack: () => void;
   onNext: () => void;
   loading: boolean;
+  submitError: string | null;
 }) {
   return (
     <>
@@ -760,6 +819,15 @@ function StepFive({
         <SuccessCard title="Tudo certo!">
           Confira se todas as informações estão corretas. Você poderá editar qualquer item antes de finalizar.
         </SuccessCard>
+        {submitError && (
+          <aside
+            aria-live="assertive"
+            className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-rose-700"
+          >
+            <p className="text-sm font-bold text-rose-800">Erro ao cadastrar cliente</p>
+            <p className="mt-1 text-sm leading-6">{submitError}</p>
+          </aside>
+        )}
         <StepNavigation onBack={onBack} onNext={onNext} nextLabel="Gerar meu plano financeiro" loading={loading} />
       </div>
     </>
