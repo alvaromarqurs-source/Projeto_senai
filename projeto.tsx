@@ -44,7 +44,7 @@ type FinancialData = {
 };
 
 type GoalData = {
-  objetivo: "aposentadoria" | "imovel" | "viajar" | "renda" | "";
+  objetivo: "aposentadoria" | "imovel" | "Viagens" | "renda" | "";
   prazo: number;
   metaFinanceira: string;
   preocupacao: string;
@@ -140,7 +140,7 @@ function mapGoalToApiValue(goal: GoalData["objetivo"]) {
   const labels = {
     aposentadoria: "Aposentadoria",
     imovel: "Imovel",
-    viajar: "Viajar",
+    Viagens: "Viagens",
     renda: "Renda_passiva",
     "": "",
   };
@@ -169,7 +169,7 @@ function goalLabel(goal: GoalData["objetivo"]) {
   const labels = {
     aposentadoria: "Aposentadoria",
     imovel: "Comprar imóvel",
-    viajar: "Viajar",
+    Viagens: "Viagens",
     renda: "Renda passiva",
     "": "Não informado",
   };
@@ -755,7 +755,7 @@ function StepThree({
   const goals = [
     { value: "aposentadoria" as const, title: "Aposentar", icon: Umbrella },
     { value: "imovel" as const, title: "Comprar imóvel", icon: Home },
-    { value: "viajar" as const, title: "Viajar", icon: Plane },
+    { value: "Viagens" as const, title: "Viagens", icon: Plane },
     { value: "renda" as const, title: "Renda passiva", icon: CircleDollarSign },
   ];
 
