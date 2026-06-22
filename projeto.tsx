@@ -30,7 +30,10 @@ import {
 } from "./src/components/onboarding/SidebarProgress";
 import { StepNavigation } from "./src/components/onboarding/StepNavigation";
 import { SuccessCard } from "./src/components/onboarding/SuccessCard";
-import { createClient, type Client } from "./src/services/clientService";
+import {
+  submitOnboarding,
+  type OnboardingPayload,
+} from "./src/services/onboardingService";
 
 type PersonalData = {
   nome: string;
@@ -164,34 +167,86 @@ function parseMoney(value: string) {
   return Number(value.replace(/\D/g, "")) / 100;
 }
 
-function toDecimalString(value: string) {
-  return parseMoney(value).toFixed(2);
+function isValidCpf(value: string) {
+  const cpf = value.replace(/\D/g, "");
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+
+  const calculateDigit = (length: number) => {
+    const total = cpf
+      .slice(0, length)
+      .split("")
+      .reduce((sum, digit, index) => sum + Number(digit) * (length + 1 - index), 0);
+    const remainder = (total * 10) % 11;
+    return remainder === 10 ? 0 : remainder;
+  };
+
+  return calculateDigit(9) === Number(cpf[9]) && calculateDigit(10) === Number(cpf[10]);
 }
 
-function mapOnboardingToClient(data: OnboardingData): Client {
+function mapLiquidity(value: string): OnboardingPayload["liquidez_necessaria"] {
+  const values: Record<string, OnboardingPayload["liquidez_necessaria"]> = {
+    "Menos de 6 meses": "Imediata",
+    "Entre 6 meses e 1 ano": "Curto_prazo",
+    "Entre 1 e 3 anos": "Medio_prazo",
+    "Entre 3 e 5 anos": "Longo_prazo",
+    "Mais de 5 anos": "Longo_prazo",
+  };
+  return values[value] ?? "Imediata";
+}
+
+function mapExperience(value: string): OnboardingPayload["experiencia_em_investimentos"] {
+  const values: Record<string, OnboardingPayload["experiencia_em_investimentos"]> = {
+    nenhuma: "Nenhuma",
+    basica: "Iniciante",
+    intermediaria: "Intermediario",
+    avancada: "Avancado",
+  };
+  return values[value] ?? "Nenhuma";
+}
+
+function mapVolatility(value: string) {
+  const values: Record<string, number> = {
+    evitar_oscilacoes: 1,
+    pequenas_oscilacoes: 4,
+    oscilacoes_moderadas: 7,
+    grandes_oscilacoes: 10,
+  };
+  return values[value] ?? 1;
+}
+
+function mapLifeGoal(value: string): OnboardingPayload["objetivo_de_vida"] {
+  const values: Record<string, OnboardingPayload["objetivo_de_vida"]> = {
+    aposentadoria: "Aposentadoria",
+    compra_imovel: "Imovel",
+    independencia_financeira: "Renda_passiva",
+    renda_passiva: "Renda_passiva",
+    educacao: "Preservacao",
+    protecao_patrimonial: "Preservacao",
+    viagens: "Viagens",
+    empreender: "Preservacao",
+  };
+  return values[value] ?? "Preservacao";
+}
+
+function mapOnboardingToPayload(data: OnboardingData): OnboardingPayload {
   return {
-    dadosPessoais: {
-      nome: data.personal.nome.trim(),
-      cpf: data.personal.cpf.replace(/\D/g, ""),
-      email: data.personal.email.trim(),
-      idade: Number(data.personal.idade),
-      rendaAtual: toDecimalString(data.personal.rendaAtual),
-      dor: data.personal.dor.trim(),
-    },
-    situacaoFinanceira: {
-      aporteMensal: toDecimalString(data.financial.investimentoMensal),
-      reservaDeEmergencia: data.financial.reservaEmergencia === "sim",
-      valorReservaEmergencia: toDecimalString(data.financial.valorReserva),
-      possuiDividas: data.financial.possuiDividas === "sim",
-      rendaComprometida: data.financial.rendaComprometida,
-    },
-    objetivos: {
-      objetivo: data.goals.objetivo,
-      prazo: data.goals.prazo,
-      metaFinanceira: toDecimalString(data.goals.metaFinanceira),
-      preocupacao: data.goals.preocupacao.trim(),
-    },
-    perfilInvestidor: { ...data.perfilInvestidor },
+    nome: data.personal.nome.trim(),
+    cpf: data.personal.cpf.replace(/\D/g, ""),
+    email: data.personal.email.trim(),
+    idade: Number(data.personal.idade),
+    renda_atual: parseMoney(data.personal.rendaAtual),
+    aporte_mensal: parseMoney(data.financial.investimentoMensal),
+    reserva_de_emergencia: data.financial.reservaEmergencia === "sim",
+    valor_armazenado_reserva_emergencia: parseMoney(data.financial.valorReserva),
+    possui_dividas: data.financial.possuiDividas === "sim",
+    tolerancia_volatilidade: mapVolatility(data.perfilInvestidor.toleranciaVolatilidade),
+    experiencia_em_investimentos: mapExperience(data.perfilInvestidor.experienciaInvestimentos),
+    aceitacao_perda_percentual: data.perfilInvestidor.aceitacaoPerdaPercentual,
+    liquidez_necessaria: mapLiquidity(data.perfilInvestidor.liquidezNecessaria),
+    objetivo_de_vida: mapLifeGoal(data.perfilInvestidor.objetivoVida),
+    tempo_estimado_retorno: data.goals.prazo,
+    valor_desejado_acumulado: parseMoney(data.goals.metaFinanceira),
+    preocupacao_atual: data.goals.preocupacao.trim() || data.personal.dor.trim(),
   };
 }
 
@@ -211,11 +266,11 @@ function validateStep(step: number, data: OnboardingData): FieldError {
 
   if (step === 1) {
     if (!data.personal.nome.trim()) errors.nome = "Informe seu nome.";
-    if (data.personal.cpf.replace(/\D/g, "").length < 11) errors.cpf = "CPF incompleto.";
+    if (!isValidCpf(data.personal.cpf)) errors.cpf = "Informe um CPF válido.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.personal.email)) {
       errors.email = "Informe um e-mail válido.";
     }
-    if (!data.personal.idade || Number(data.personal.idade) < 18) {
+    if (!data.personal.idade || !Number.isInteger(Number(data.personal.idade)) || Number(data.personal.idade) < 18) {
       errors.idade = "Idade mínima de 18 anos.";
     }
     if (parseMoney(data.personal.rendaAtual) <= 0) errors.rendaAtual = "Informe sua renda.";
@@ -235,6 +290,9 @@ function validateStep(step: number, data: OnboardingData): FieldError {
 
   if (step === 3) {
     if (!data.goals.objetivo) errors.objetivo = "Selecione um objetivo.";
+    if (!Number.isInteger(data.goals.prazo) || data.goals.prazo <= 0) {
+      errors.prazo = "Informe um prazo válido.";
+    }
     if (parseMoney(data.goals.metaFinanceira) <= 0) errors.metaFinanceira = "Informe uma meta.";
     if (!data.goals.preocupacao.trim()) errors.preocupacao = "Preencha este campo.";
   }
@@ -251,6 +309,13 @@ function validateStep(step: number, data: OnboardingData): FieldError {
     }
     if (!data.perfilInvestidor.objetivoVida) {
       errors.objetivoVida = "Selecione uma opção.";
+    }
+    if (
+      !Number.isFinite(data.perfilInvestidor.aceitacaoPerdaPercentual) ||
+      data.perfilInvestidor.aceitacaoPerdaPercentual < 0 ||
+      data.perfilInvestidor.aceitacaoPerdaPercentual > 50
+    ) {
+      errors.aceitacaoPerdaPercentual = "Selecione um percentual válido.";
     }
   }
 
@@ -467,6 +532,7 @@ function RangeInput({
   leftLabel,
   rightLabel,
   valueLabel,
+  error,
 }: {
   id: string;
   label: string;
@@ -478,6 +544,7 @@ function RangeInput({
   leftLabel: string;
   rightLabel: string;
   valueLabel: string;
+  error?: string;
 }) {
   return (
     <div>
@@ -499,6 +566,7 @@ function RangeInput({
         onChange={(event) => onChange(Number(event.target.value))}
         className="h-2 w-full cursor-pointer accent-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
       />
+      <FieldErrorText error={error} />
     </div>
   );
 }
@@ -583,12 +651,22 @@ export default function InvestorProfileOnboarding() {
     setValidationVisible(true);
     if (hasErrors(nextErrors)) return;
 
+    if (currentStep === 5) {
+      const hasInvalidStep = [1, 2, 3, 4].some((step) =>
+        hasErrors(validateStep(step, data)),
+      );
+      if (hasInvalidStep) {
+        setSubmitError("Revise os campos obrigatórios antes de concluir o cadastro.");
+        return;
+      }
+    }
+
     setLoading(true);
     setSubmitError(null);
 
     if (currentStep === 5) {
       try {
-        await createClient(mapOnboardingToClient(data));
+        await submitOnboarding(mapOnboardingToPayload(data));
         const nextStep = Math.min(currentStep + 1, totalSteps);
         setMaxUnlockedStep((current) => Math.max(current, nextStep));
         goToStep(nextStep);
@@ -829,7 +907,7 @@ function StepThree({
           </div>
           <FieldErrorText error={errors.objetivo} />
         </div>
-        <RangeInput id="prazo" label="Em quanto tempo pretende alcançar?" value={data.prazo} min={1} max={30} onChange={(prazo) => onChange({ prazo })} leftLabel="1 ano" rightLabel="30 anos" valueLabel={`${data.prazo} anos`} />
+        <RangeInput id="prazo" label="Em quanto tempo pretende alcançar?" value={data.prazo} min={1} max={30} onChange={(prazo) => onChange({ prazo })} leftLabel="1 ano" rightLabel="30 anos" valueLabel={`${data.prazo} anos`} error={errors.prazo} />
         <CurrencyInput id="metaFinanceira" label="Quanto deseja acumular?" value={data.metaFinanceira} onChange={(metaFinanceira) => onChange({ metaFinanceira })} placeholder="R$ 500.000" error={errors.metaFinanceira} />
         <TextArea id="preocupacao" label="O que mais te preocupa hoje?" value={data.preocupacao} onChange={(preocupacao) => onChange({ preocupacao })} placeholder='Ex.: "Não saber se estou investindo corretamente."' error={errors.preocupacao} />
         {data.objetivo && isValid && (
@@ -917,6 +995,7 @@ function StepFour({
           leftLabel="0%"
           rightLabel="50%"
           valueLabel={`${data.aceitacaoPerdaPercentual}%`}
+          error={errors.aceitacaoPerdaPercentual}
         />
 
         <div>

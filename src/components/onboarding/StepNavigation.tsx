@@ -30,8 +30,16 @@ export function StepNavigation({
         disabled={nextDisabled || loading}
         className="inline-flex h-11 min-w-40 items-center justify-center rounded-xl bg-indigo-600 px-6 text-sm font-bold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
       >
-        {loading ? "Salvando..." : `${nextLabel} ->`}
+        {loading ? (
+          <>
+            <LoaderCircle aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
+            Salvando...
+          </>
+        ) : (
+          `${nextLabel} ->`
+        )}
       </button>
     </footer>
   );
 }
+import { LoaderCircle } from "lucide-react";
