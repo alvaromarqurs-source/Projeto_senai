@@ -1,17 +1,32 @@
 export type Client = {
-  nome: string;
-  cpf: string;
-  email: string;
-  idade: number;
-  renda_atual: string;
-  aporte_mensal: string;
-  reserva_de_emergencia: boolean;
-  valor_armazenado_reserva_emergencia: string;
-  possui_dividas: boolean;
-  objetivo_de_vida: string;
-  tempo_estimado_retorno: number;
-  valor_desejado_acumulado: string;
-  preocupacao_atual: string;
+  dadosPessoais: {
+    nome: string;
+    cpf: string;
+    email: string;
+    idade: number;
+    rendaAtual: string;
+    dor: string;
+  };
+  situacaoFinanceira: {
+    aporteMensal: string;
+    reservaDeEmergencia: boolean;
+    valorReservaEmergencia: string;
+    possuiDividas: boolean;
+    rendaComprometida: number;
+  };
+  objetivos: {
+    objetivo: string;
+    prazo: number;
+    metaFinanceira: string;
+    preocupacao: string;
+  };
+  perfilInvestidor: {
+    liquidezNecessaria: string;
+    aceitacaoPerdaPercentual: number;
+    experienciaInvestimentos: string;
+    toleranciaVolatilidade: string;
+    objetivoVida: string;
+  };
 };
 
 const apiBaseUrl = "http://127.0.0.1:8000/api/v1";

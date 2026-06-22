@@ -2,14 +2,20 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
+  BriefcaseBusiness,
+  Building2,
   CalendarClock,
   ChevronDown,
   CircleDollarSign,
+  GraduationCap,
   Goal,
   Home,
   PartyPopper,
   Plane,
+  Rocket,
+  Shield,
   Target,
+  TrendingUp,
   Umbrella,
   WalletCards,
 } from "lucide-react";
@@ -50,24 +56,34 @@ type GoalData = {
   preocupacao: string;
 };
 
+export interface PerfilInvestidor {
+  liquidezNecessaria: string;
+  aceitacaoPerdaPercentual: number;
+  experienciaInvestimentos: string;
+  toleranciaVolatilidade: string;
+  objetivoVida: string;
+}
+
 type OnboardingData = {
   personal: PersonalData;
   financial: FinancialData;
   goals: GoalData;
+  perfilInvestidor: PerfilInvestidor;
 };
 
 type FieldError = Partial<Record<string, string>>;
 
 const storageKey = "investor-onboarding-data";
 const maxStepKey = "investor-onboarding-max-step";
-const totalSteps = 5;
+const totalSteps = 6;
 
 const steps: OnboardingStep[] = [
   { id: 1, title: "Informações pessoais", shortTitle: "Info. pessoais" },
   { id: 2, title: "Situação financeira", shortTitle: "Sit. financeira" },
   { id: 3, title: "Objetivos", shortTitle: "Objetivos" },
-  { id: 4, title: "Revisão", shortTitle: "Revisão" },
-  { id: 5, title: "Conclusão", shortTitle: "Conclusão" },
+  { id: 4, title: "Perfil do Investidor", shortTitle: "Perfil" },
+  { id: 5, title: "Revisão", shortTitle: "Revisão" },
+  { id: 6, title: "Conclusão", shortTitle: "Conclusão" },
 ];
 
 const initialData: OnboardingData = {
@@ -92,6 +108,13 @@ const initialData: OnboardingData = {
     metaFinanceira: "",
     preocupacao: "",
   },
+  perfilInvestidor: {
+    liquidezNecessaria: "",
+    aceitacaoPerdaPercentual: 0,
+    experienciaInvestimentos: "",
+    toleranciaVolatilidade: "",
+    objetivoVida: "",
+  },
 };
 
 const inputClassName =
@@ -112,7 +135,16 @@ function readStoredData(): OnboardingData {
   try {
     const stored = window.localStorage.getItem(storageKey);
     if (!stored) return initialData;
-    return { ...initialData, ...JSON.parse(stored) } as OnboardingData;
+    const parsed = JSON.parse(stored) as Partial<OnboardingData>;
+    return {
+      personal: { ...initialData.personal, ...parsed.personal },
+      financial: { ...initialData.financial, ...parsed.financial },
+      goals: { ...initialData.goals, ...parsed.goals },
+      perfilInvestidor: {
+        ...initialData.perfilInvestidor,
+        ...parsed.perfilInvestidor,
+      },
+    };
   } catch {
     return initialData;
   }
@@ -136,32 +168,30 @@ function toDecimalString(value: string) {
   return parseMoney(value).toFixed(2);
 }
 
-function mapGoalToApiValue(goal: GoalData["objetivo"]) {
-  const labels = {
-    aposentadoria: "Aposentadoria",
-    imovel: "Imovel",
-    viajar: "Viajar",
-    renda: "Renda_passiva",
-    "": "",
-  };
-  return labels[goal];
-}
-
 function mapOnboardingToClient(data: OnboardingData): Client {
   return {
-    nome: data.personal.nome.trim(),
-    cpf: data.personal.cpf.replace(/\D/g, ""),
-    email: data.personal.email.trim(),
-    idade: Number(data.personal.idade),
-    renda_atual: toDecimalString(data.personal.rendaAtual),
-    aporte_mensal: toDecimalString(data.financial.investimentoMensal),
-    reserva_de_emergencia: data.financial.reservaEmergencia === "sim",
-    valor_armazenado_reserva_emergencia: toDecimalString(data.financial.valorReserva),
-    possui_dividas: data.financial.possuiDividas === "sim",
-    objetivo_de_vida: mapGoalToApiValue(data.goals.objetivo),
-    tempo_estimado_retorno: data.goals.prazo,
-    valor_desejado_acumulado: toDecimalString(data.goals.metaFinanceira),
-    preocupacao_atual: data.goals.preocupacao.trim() || data.personal.dor.trim(),
+    dadosPessoais: {
+      nome: data.personal.nome.trim(),
+      cpf: data.personal.cpf.replace(/\D/g, ""),
+      email: data.personal.email.trim(),
+      idade: Number(data.personal.idade),
+      rendaAtual: toDecimalString(data.personal.rendaAtual),
+      dor: data.personal.dor.trim(),
+    },
+    situacaoFinanceira: {
+      aporteMensal: toDecimalString(data.financial.investimentoMensal),
+      reservaDeEmergencia: data.financial.reservaEmergencia === "sim",
+      valorReservaEmergencia: toDecimalString(data.financial.valorReserva),
+      possuiDividas: data.financial.possuiDividas === "sim",
+      rendaComprometida: data.financial.rendaComprometida,
+    },
+    objetivos: {
+      objetivo: data.goals.objetivo,
+      prazo: data.goals.prazo,
+      metaFinanceira: toDecimalString(data.goals.metaFinanceira),
+      preocupacao: data.goals.preocupacao.trim(),
+    },
+    perfilInvestidor: { ...data.perfilInvestidor },
   };
 }
 
@@ -207,6 +237,21 @@ function validateStep(step: number, data: OnboardingData): FieldError {
     if (!data.goals.objetivo) errors.objetivo = "Selecione um objetivo.";
     if (parseMoney(data.goals.metaFinanceira) <= 0) errors.metaFinanceira = "Informe uma meta.";
     if (!data.goals.preocupacao.trim()) errors.preocupacao = "Preencha este campo.";
+  }
+
+  if (step === 4) {
+    if (!data.perfilInvestidor.liquidezNecessaria) {
+      errors.liquidezNecessaria = "Selecione uma opção.";
+    }
+    if (!data.perfilInvestidor.experienciaInvestimentos) {
+      errors.experienciaInvestimentos = "Selecione uma opção.";
+    }
+    if (!data.perfilInvestidor.toleranciaVolatilidade) {
+      errors.toleranciaVolatilidade = "Selecione uma opção.";
+    }
+    if (!data.perfilInvestidor.objetivoVida) {
+      errors.objetivoVida = "Selecione uma opção.";
+    }
   }
 
   return errors;
@@ -370,6 +415,7 @@ function SelectInput({
   value,
   onChange,
   options,
+  placeholder = "Selecione uma faixa de valor",
   error,
 }: {
   id: string;
@@ -377,6 +423,7 @@ function SelectInput({
   value: string;
   onChange: (value: string) => void;
   options: string[];
+  placeholder?: string;
   error?: string;
 }) {
   return (
@@ -392,7 +439,7 @@ function SelectInput({
           className={selectClassName}
           aria-invalid={Boolean(error)}
         >
-          <option value="">Selecione uma faixa de valor</option>
+          <option value="">{placeholder}</option>
           {options.map((option) => (
             <option key={option} value={option}>
               {option}
@@ -539,7 +586,7 @@ export default function InvestorProfileOnboarding() {
     setLoading(true);
     setSubmitError(null);
 
-    if (currentStep === 4) {
+    if (currentStep === 5) {
       try {
         await createClient(mapOnboardingToClient(data));
         const nextStep = Math.min(currentStep + 1, totalSteps);
@@ -611,6 +658,16 @@ export default function InvestorProfileOnboarding() {
       />
     ),
     4: (
+      <StepFour
+        data={data.perfilInvestidor}
+        errors={errors}
+        onChange={(value) => updateData("perfilInvestidor", value)}
+        onBack={handleBack}
+        onNext={handleNext}
+        loading={loading}
+      />
+    ),
+    5: (
       <StepFive
         data={data}
         onEdit={goToStep}
@@ -620,7 +677,7 @@ export default function InvestorProfileOnboarding() {
         submitError={submitError}
       />
     ),
-    5: <StepSix data={data} onBack={() => goToStep(1)} />,
+    6: <StepSix data={data} onBack={() => goToStep(1)} />,
   }[currentStep];
 
   return (
@@ -787,6 +844,170 @@ function StepThree({
   );
 }
 
+function StepFour({
+  data,
+  errors,
+  onChange,
+  onBack,
+  onNext,
+  loading,
+}: {
+  data: PerfilInvestidor;
+  errors: FieldError;
+  onChange: (value: Partial<PerfilInvestidor>) => void;
+  onBack: () => void;
+  onNext: () => void;
+  loading: boolean;
+}) {
+  const toleranceOptions = [
+    { value: "evitar_oscilacoes", title: "A) Prefiro evitar oscilações.", icon: Shield },
+    { value: "pequenas_oscilacoes", title: "B) Aceito pequenas oscilações.", icon: BarChart3 },
+    { value: "oscilacoes_moderadas", title: "C) Aceito oscilações moderadas.", icon: TrendingUp },
+    {
+      value: "grandes_oscilacoes",
+      title: "D) Aceito grandes oscilações em busca de maiores retornos.",
+      icon: Rocket,
+    },
+  ];
+
+  const lifeGoalOptions = [
+    { value: "aposentadoria", title: "Aposentadoria", icon: Umbrella },
+    { value: "compra_imovel", title: "Compra de imóvel", icon: Home },
+    { value: "independencia_financeira", title: "Independência financeira", icon: Goal },
+    { value: "renda_passiva", title: "Renda passiva", icon: CircleDollarSign },
+    { value: "educacao", title: "Educação", icon: GraduationCap },
+    { value: "protecao_patrimonial", title: "Proteção patrimonial", icon: Building2 },
+    { value: "viagens", title: "Viagens", icon: Plane },
+    { value: "empreender", title: "Empreender", icon: BriefcaseBusiness },
+  ];
+
+  return (
+    <>
+      <ProgressHeader
+        currentStep={4}
+        totalSteps={totalSteps}
+        title="Perfil do Investidor"
+        badge="5 campos"
+      />
+      <div className="space-y-5">
+        <SelectInput
+          id="liquidezNecessaria"
+          label="Em quanto tempo você pode precisar resgatar parte do dinheiro investido?"
+          value={data.liquidezNecessaria}
+          onChange={(liquidezNecessaria) => onChange({ liquidezNecessaria })}
+          options={[
+            "Menos de 6 meses",
+            "Entre 6 meses e 1 ano",
+            "Entre 1 e 3 anos",
+            "Entre 3 e 5 anos",
+            "Mais de 5 anos",
+          ]}
+          placeholder="Selecione um prazo"
+          error={errors.liquidezNecessaria}
+        />
+
+        <RangeInput
+          id="aceitacaoPerdaPercentual"
+          label="Qual queda temporária você aceitaria em seus investimentos sem resgatar o dinheiro?"
+          value={data.aceitacaoPerdaPercentual}
+          min={0}
+          max={50}
+          step={1}
+          onChange={(aceitacaoPerdaPercentual) => onChange({ aceitacaoPerdaPercentual })}
+          leftLabel="0%"
+          rightLabel="50%"
+          valueLabel={`${data.aceitacaoPerdaPercentual}%`}
+        />
+
+        <div>
+          <p className={labelClassName}>Qual é seu nível de experiência com investimentos?</p>
+          <RadioGroup
+            name="experienciaInvestimentos"
+            value={data.experienciaInvestimentos}
+            onChange={(experienciaInvestimentos) => onChange({ experienciaInvestimentos })}
+            options={[
+              { label: "Nenhuma", value: "nenhuma" },
+              { label: "Básica", value: "basica" },
+              { label: "Intermediária", value: "intermediaria" },
+              { label: "Avançada", value: "avancada" },
+            ]}
+            error={errors.experienciaInvestimentos}
+          />
+        </div>
+
+        <div>
+          <p className={labelClassName}>
+            Como você reage quando seus investimentos apresentam oscilações negativas?
+          </p>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {toleranceOptions.map((option) => (
+              <GoalCard
+                key={option.value}
+                title={option.title}
+                icon={option.icon}
+                selected={data.toleranciaVolatilidade === option.value}
+                onSelect={() => onChange({ toleranciaVolatilidade: option.value })}
+              />
+            ))}
+          </div>
+          <FieldErrorText error={errors.toleranciaVolatilidade} />
+        </div>
+
+        <div>
+          <p className={labelClassName}>
+            Qual objetivo melhor representa sua prioridade financeira atual?
+          </p>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {lifeGoalOptions.map((option) => (
+              <GoalCard
+                key={option.value}
+                title={option.title}
+                icon={option.icon}
+                selected={data.objetivoVida === option.value}
+                onSelect={() => onChange({ objetivoVida: option.value })}
+              />
+            ))}
+          </div>
+          <FieldErrorText error={errors.objetivoVida} />
+        </div>
+
+        <InfoCard>
+          Suas respostas serão registradas para personalizar recomendações financeiras futuras.
+        </InfoCard>
+        <StepNavigation
+          onBack={onBack}
+          onNext={onNext}
+          nextLabel="Continuar"
+          loading={loading}
+        />
+      </div>
+    </>
+  );
+}
+
+function investorProfileLabel(value: string) {
+  const labels: Record<string, string> = {
+    nenhuma: "Nenhuma",
+    basica: "Básica",
+    intermediaria: "Intermediária",
+    avancada: "Avançada",
+    evitar_oscilacoes: "Prefiro evitar oscilações",
+    pequenas_oscilacoes: "Aceito pequenas oscilações",
+    oscilacoes_moderadas: "Aceito oscilações moderadas",
+    grandes_oscilacoes: "Aceito grandes oscilações em busca de maiores retornos",
+    aposentadoria: "Aposentadoria",
+    compra_imovel: "Compra de imóvel",
+    independencia_financeira: "Independência financeira",
+    renda_passiva: "Renda passiva",
+    educacao: "Educação",
+    protecao_patrimonial: "Proteção patrimonial",
+    viagens: "Viagens",
+    empreender: "Empreender",
+  };
+
+  return labels[value] ?? "Não informado";
+}
+
 function StepFive({
   data,
   onEdit,
@@ -804,7 +1025,7 @@ function StepFive({
 }) {
   return (
     <>
-      <ProgressHeader currentStep={4} totalSteps={totalSteps} title="Revisão" badge="Revise seus dados" />
+      <ProgressHeader currentStep={5} totalSteps={totalSteps} title="Revisão" badge="Revise seus dados" />
       <div className="space-y-5">
         <p className="text-sm leading-6 text-slate-500">Revise suas informações antes de finalizar seu perfil.</p>
         <ReviewCard title="Informações pessoais" summary={`Nome: ${data.personal.nome || "Não informado"} • Idade: ${data.personal.idade || "--"} • Email: ${data.personal.email || "--"}`} onEdit={() => onEdit(1)}>
@@ -815,6 +1036,13 @@ function StepFive({
         </ReviewCard>
         <ReviewCard title="Objetivos" summary={`Objetivo: ${goalLabel(data.goals.objetivo)} • Prazo: ${data.goals.prazo} anos • Meta: ${data.goals.metaFinanceira || "--"}`} onEdit={() => onEdit(3)}>
           Preocupação: {data.goals.preocupacao || "Não informado"}
+        </ReviewCard>
+        <ReviewCard
+          title="Perfil do Investidor"
+          summary={`Liquidez: ${data.perfilInvestidor.liquidezNecessaria || "--"} • Aceitação de perda: ${data.perfilInvestidor.aceitacaoPerdaPercentual}% • Experiência: ${investorProfileLabel(data.perfilInvestidor.experienciaInvestimentos)}`}
+          onEdit={() => onEdit(4)}
+        >
+          Tolerância à volatilidade: {investorProfileLabel(data.perfilInvestidor.toleranciaVolatilidade)} • Objetivo de vida: {investorProfileLabel(data.perfilInvestidor.objetivoVida)}
         </ReviewCard>
         <SuccessCard title="Tudo certo!">
           Confira se todas as informações estão corretas. Você poderá editar qualquer item antes de finalizar.
@@ -839,14 +1067,14 @@ function StepSix({ data, onBack }: { data: OnboardingData; onBack: () => void })
 
   return (
     <>
-      <ProgressHeader currentStep={5} totalSteps={totalSteps} title="Conclusão" badge="100%" />
+      <ProgressHeader currentStep={6} totalSteps={totalSteps} title="Conclusão" badge="100%" />
       <div className="space-y-6">
         <section className="text-center">
           <PartyPopper aria-hidden="true" className="mx-auto h-12 w-12 text-indigo-600" />
           <h2 className="mt-3 text-3xl font-bold text-indigo-600">Parabéns!</h2>
           <p className="mt-2 text-sm font-bold text-indigo-600">Seu perfil foi criado com sucesso.</p>
           <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">
-            Agora temos informações suficientes para construir uma estratégia financeira personalizada para você.
+            Seu perfil foi registrado e será utilizado para personalizar suas recomendações financeiras.
           </p>
         </section>
 
