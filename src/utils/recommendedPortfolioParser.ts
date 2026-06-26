@@ -4,20 +4,26 @@ export interface ParsedInvestment {
   motivo: string;
 }
 
-export interface ParsedRecommendedPortfolio {
+export type PortfolioParsed = {
   resumo: string;
   investimentos: ParsedInvestment[];
   textoCarteira: string;
-}
+};
+
+export type ParsedRecommendedPortfolio = PortfolioParsed;
 
 type InvestmentField = keyof ParsedInvestment;
 
 function readField(line: string): { field: InvestmentField; value: string } | null {
-  const match = line.match(/^(Nome do investimento|Valor recomendado(?: para investir)?|Motivo(?: da escolha)?):?\s*(.*)$/i);
+  const match = line.match(
+    /^(Nome do investimento|Investimento|Ativo|Valor recomendado(?: para investir)?|Valor(?: para investir)?|Motivo(?: da escolha)?|Justificativa):?\s*(.*)$/i,
+  );
   if (!match) return null;
 
   const label = match[1].toLowerCase();
   const field = label.startsWith("nome")
+    || label.startsWith("investimento")
+    || label.startsWith("ativo")
     ? "nome"
     : label.startsWith("valor")
       ? "valor"
@@ -34,15 +40,40 @@ function isSummaryTitle(line: string) {
   return /^Resumo da estrat.gia:?$/i.test(line.trim());
 }
 
+function isPortfolioTitle(line: string) {
+  return /^Carteira recomendada:?$/i.test(line.trim());
+}
+
+function isBulletOnly(line: string) {
+  return /^[-*•]\s*$/.test(line.trim());
+}
+
+function normalizeLine(line: string) {
+  return line.replace(/^[-*•]\s*/, "").trim();
+}
+
+function splitSections(lines: string[]) {
+  const summaryIndex = lines.findIndex((line) => isSummaryTitle(line));
+  const portfolioIndex = lines.findIndex((line) => isPortfolioTitle(line));
+
+  if (portfolioIndex < 0) {
+    return {
+      summaryLines: summaryIndex >= 0 ? lines.slice(summaryIndex + 1) : lines,
+      portfolioLines: [] as string[],
+    };
+  }
+
+  const summaryStart = summaryIndex >= 0 && summaryIndex < portfolioIndex ? summaryIndex + 1 : 0;
+  return {
+    summaryLines: lines.slice(summaryStart, portfolioIndex),
+    portfolioLines: lines.slice(portfolioIndex + 1),
+  };
+}
+
 export function parseRecommendedPortfolio(message: string): ParsedRecommendedPortfolio {
   const normalized = message.replace(/\r\n/g, "\n").trim();
   const lines = normalized.split("\n");
-  const portfolioIndex = lines.findIndex((line) =>
-    /^Carteira recomendada:?$/i.test(line.trim()),
-  );
-
-  const summaryLines = portfolioIndex >= 0 ? lines.slice(0, portfolioIndex) : lines;
-  const portfolioLines = portfolioIndex >= 0 ? lines.slice(portfolioIndex + 1) : [];
+  const { summaryLines, portfolioLines } = splitSections(lines);
   const resumo = summaryLines
     .filter((line) => !isSummaryTitle(line))
     .join("\n")
@@ -53,8 +84,8 @@ export function parseRecommendedPortfolio(message: string): ParsedRecommendedPor
   let currentField: InvestmentField | null = null;
 
   for (const line of portfolioLines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
+    const trimmed = normalizeLine(line);
+    if (!trimmed || isBulletOnly(line)) continue;
 
     const parsedField = readField(trimmed);
     if (parsedField) {
