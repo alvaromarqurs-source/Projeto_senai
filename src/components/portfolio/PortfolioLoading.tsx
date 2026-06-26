@@ -12,7 +12,7 @@ export function PortfolioLoading() {
           Aguarde um instante enquanto geramos sua carteira personalizada.
         </h3>
         <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-[15px]">
-          Estamos analisando seu perfil de investidor e selecionando os ativos mais adequados para você.
+          Estamos analisando seu perfil de investidor e montando a melhor estratégia para você.
         </p>
       </div>
       <div className="mt-6 grid gap-3 text-left sm:grid-cols-3">

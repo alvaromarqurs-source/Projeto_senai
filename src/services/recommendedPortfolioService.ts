@@ -8,7 +8,7 @@ export async function getRecommendedPortfolio(email: string) {
   const response = await api.post<RecommendedPortfolioResponse>(
     "/indica-carteira/",
     { email },
-    { timeout: 0 },
+    { timeout: 45000 },
   );
 
   return response.data;
