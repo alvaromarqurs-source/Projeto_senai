@@ -34,6 +34,7 @@ import {
   submitOnboarding,
   type OnboardingPayload,
 } from "./src/services/onboardingService";
+import { getRecommendedPortfolio } from "./src/services/recommendedPortfolioService";
 
 type PersonalData = {
   nome: string;
@@ -53,7 +54,6 @@ type FinancialData = {
 };
 
 type GoalData = {
-  objetivo: "aposentadoria" | "imovel" | "Viagens" | "renda" | "";
   prazo: number;
   metaFinanceira: string;
   preocupacao: string;
@@ -106,7 +106,6 @@ const initialData: OnboardingData = {
     rendaComprometida: 40,
   },
   goals: {
-    objetivo: "",
     prazo: 10,
     metaFinanceira: "",
     preocupacao: "",
@@ -139,10 +138,15 @@ function readStoredData(): OnboardingData {
     const stored = window.localStorage.getItem(storageKey);
     if (!stored) return initialData;
     const parsed = JSON.parse(stored) as Partial<OnboardingData>;
+    const storedGoals = parsed.goals;
     return {
       personal: { ...initialData.personal, ...parsed.personal },
       financial: { ...initialData.financial, ...parsed.financial },
-      goals: { ...initialData.goals, ...parsed.goals },
+      goals: {
+        prazo: storedGoals?.prazo ?? initialData.goals.prazo,
+        metaFinanceira: storedGoals?.metaFinanceira ?? initialData.goals.metaFinanceira,
+        preocupacao: storedGoals?.preocupacao ?? initialData.goals.preocupacao,
+      },
       perfilInvestidor: {
         ...initialData.perfilInvestidor,
         ...parsed.perfilInvestidor,
@@ -250,17 +254,6 @@ function mapOnboardingToPayload(data: OnboardingData): OnboardingPayload {
   };
 }
 
-function goalLabel(goal: GoalData["objetivo"]) {
-  const labels = {
-    aposentadoria: "Aposentadoria",
-    imovel: "Comprar imóvel",
-    Viagens: "Viagens",
-    renda: "Renda passiva",
-    "": "Não informado",
-  };
-  return labels[goal];
-}
-
 function validateStep(step: number, data: OnboardingData): FieldError {
   const errors: FieldError = {};
 
@@ -289,7 +282,6 @@ function validateStep(step: number, data: OnboardingData): FieldError {
   }
 
   if (step === 3) {
-    if (!data.goals.objetivo) errors.objetivo = "Selecione um objetivo.";
     if (!Number.isInteger(data.goals.prazo) || data.goals.prazo <= 0) {
       errors.prazo = "Informe um prazo válido.";
     }
@@ -582,6 +574,9 @@ export default function InvestorProfileOnboarding() {
   const [validationVisible, setValidationVisible] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [planLoading, setPlanLoading] = React.useState(false);
+  const [planError, setPlanError] = React.useState<string | null>(null);
+  const [planSuccess, setPlanSuccess] = React.useState(false);
 
   React.useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(data));
@@ -612,6 +607,8 @@ export default function InvestorProfileOnboarding() {
     setValidationVisible(false);
     setErrors({});
     setSubmitError(null);
+    setPlanError(null);
+    setPlanSuccess(false);
   }, [currentStep]);
 
   React.useEffect(() => {
@@ -701,6 +698,33 @@ export default function InvestorProfileOnboarding() {
     goToStep(currentStep - 1);
   }
 
+  async function handleViewPlan() {
+    const email = data.personal.email.trim();
+
+    if (!email) {
+      setPlanSuccess(false);
+      setPlanError("Nao encontramos seu e-mail salvo. Volte aos dados pessoais e confirme o cadastro.");
+      return;
+    }
+
+    setPlanLoading(true);
+    setPlanError(null);
+    setPlanSuccess(false);
+
+    try {
+      await getRecommendedPortfolio(email);
+      setPlanSuccess(true);
+    } catch (error) {
+      setPlanError(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel buscar seu plano. Tente novamente.",
+      );
+    } finally {
+      setPlanLoading(false);
+    }
+  }
+
   const stepContent = {
     1: (
       <StepOne
@@ -755,7 +779,16 @@ export default function InvestorProfileOnboarding() {
         submitError={submitError}
       />
     ),
-    6: <StepSix data={data} onBack={() => goToStep(1)} />,
+    6: (
+      <StepSix
+        data={data}
+        onBack={() => goToStep(1)}
+        onViewPlan={handleViewPlan}
+        planLoading={planLoading}
+        planError={planError}
+        planSuccess={planSuccess}
+      />
+    ),
   }[currentStep];
 
   return (
@@ -887,30 +920,14 @@ function StepThree({
   loading: boolean;
   isValid: boolean;
 }) {
-  const goals = [
-    { value: "aposentadoria" as const, title: "Aposentar", icon: Umbrella },
-    { value: "imovel" as const, title: "Comprar imóvel", icon: Home },
-    { value: "Viagens" as const, title: "Viagens", icon: Plane },
-    { value: "renda" as const, title: "Renda passiva", icon: CircleDollarSign },
-  ];
-
   return (
     <>
-      <ProgressHeader currentStep={3} totalSteps={totalSteps} title="Objetivos" badge="4 campos" />
+      <ProgressHeader currentStep={3} totalSteps={totalSteps} title="Objetivos" badge="3 campos" />
       <div className="space-y-5">
-        <div>
-          <p className={labelClassName}>Qual seu principal objetivo?</p>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {goals.map((goal) => (
-              <GoalCard key={goal.value} title={goal.title} icon={goal.icon} selected={data.objetivo === goal.value} onSelect={() => onChange({ objetivo: goal.value })} />
-            ))}
-          </div>
-          <FieldErrorText error={errors.objetivo} />
-        </div>
         <RangeInput id="prazo" label="Em quanto tempo pretende alcançar?" value={data.prazo} min={1} max={30} onChange={(prazo) => onChange({ prazo })} leftLabel="1 ano" rightLabel="30 anos" valueLabel={`${data.prazo} anos`} error={errors.prazo} />
         <CurrencyInput id="metaFinanceira" label="Quanto deseja acumular?" value={data.metaFinanceira} onChange={(metaFinanceira) => onChange({ metaFinanceira })} placeholder="R$ 500.000" error={errors.metaFinanceira} />
         <TextArea id="preocupacao" label="O que mais te preocupa hoje?" value={data.preocupacao} onChange={(preocupacao) => onChange({ preocupacao })} placeholder='Ex.: "Não saber se estou investindo corretamente."' error={errors.preocupacao} />
-        {data.objetivo && isValid && (
+        {isValid && (
           <SuccessCard title="Perfil compatível encontrado!">Continuaremos personalizando sua estratégia.</SuccessCard>
         )}
         <InfoCard>
@@ -1113,15 +1130,15 @@ function StepFive({
         <ReviewCard title="Situação financeira" summary={`Investimento mensal: ${data.financial.investimentoMensal || "--"} • Reserva: ${data.financial.valorReserva || "Não informada"} • Dívidas: ${data.financial.possuiDividas || "--"}`} onEdit={() => onEdit(2)}>
           Renda comprometida: {data.financial.rendaComprometida}% • Reserva de emergência: {data.financial.reservaEmergencia || "Não informado"}
         </ReviewCard>
-        <ReviewCard title="Objetivos" summary={`Objetivo: ${goalLabel(data.goals.objetivo)} • Prazo: ${data.goals.prazo} anos • Meta: ${data.goals.metaFinanceira || "--"}`} onEdit={() => onEdit(3)}>
-          Preocupação: {data.goals.preocupacao || "Não informado"}
+        <ReviewCard title="Objetivos" summary={`Tempo estimado de retorno: ${data.goals.prazo} anos • Valor desejado acumulado: ${data.goals.metaFinanceira || "--"}`} onEdit={() => onEdit(3)}>
+          Preocupação atual: {data.goals.preocupacao || "Não informado"}
         </ReviewCard>
         <ReviewCard
           title="Perfil do Investidor"
           summary={`Liquidez: ${data.perfilInvestidor.liquidezNecessaria || "--"} • Aceitação de perda: ${data.perfilInvestidor.aceitacaoPerdaPercentual}% • Experiência: ${investorProfileLabel(data.perfilInvestidor.experienciaInvestimentos)}`}
           onEdit={() => onEdit(4)}
         >
-          Tolerância à volatilidade: {investorProfileLabel(data.perfilInvestidor.toleranciaVolatilidade)} • Objetivo de vida: {investorProfileLabel(data.perfilInvestidor.objetivoVida)}
+          Tolerância à volatilidade: {investorProfileLabel(data.perfilInvestidor.toleranciaVolatilidade)} • Objetivo de Vida: {investorProfileLabel(data.perfilInvestidor.objetivoVida)}
         </ReviewCard>
         <SuccessCard title="Tudo certo!">
           Confira se todas as informações estão corretas. Você poderá editar qualquer item antes de finalizar.
@@ -1141,7 +1158,21 @@ function StepFive({
   );
 }
 
-function StepSix({ data, onBack }: { data: OnboardingData; onBack: () => void }) {
+function StepSix({
+  data,
+  onBack,
+  onViewPlan,
+  planLoading,
+  planError,
+  planSuccess,
+}: {
+  data: OnboardingData;
+  onBack: () => void;
+  onViewPlan: () => void;
+  planLoading: boolean;
+  planError: string | null;
+  planSuccess: boolean;
+}) {
   const nextSteps = ["Perfil criado", "Dados analisados", "Montagem da estratégia", "Recomendações personalizadas"];
 
   return (
@@ -1159,7 +1190,7 @@ function StepSix({ data, onBack }: { data: OnboardingData; onBack: () => void })
 
         <section className="grid gap-4 sm:grid-cols-3">
           <SummaryTile icon={WalletCards} label="Usuário" value={data.personal.nome || "Não informado"} />
-          <SummaryTile icon={Target} label="Objetivo principal" value={goalLabel(data.goals.objetivo)} />
+          <SummaryTile icon={Target} label="Objetivo de vida" value={investorProfileLabel(data.perfilInvestidor.objetivoVida)} />
           <SummaryTile icon={CircleDollarSign} label="Investimento mensal" value={data.financial.investimentoMensal || "Não informado"} />
         </section>
 
@@ -1187,10 +1218,27 @@ function StepSix({ data, onBack }: { data: OnboardingData; onBack: () => void })
           <button type="button" onClick={onBack} className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
             Voltar ao dashboard
           </button>
-          <button type="button" className="inline-flex h-11 items-center justify-center rounded-xl bg-indigo-600 px-6 text-sm font-bold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-            Ver meu plano &gt;
+          <button
+            type="button"
+            onClick={onViewPlan}
+            disabled={planLoading}
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-indigo-600 px-6 text-sm font-bold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-indigo-400"
+          >
+            {planLoading ? "Buscando plano..." : "Ver meu plano >"}
           </button>
         </div>
+        {(planError || planSuccess) && (
+          <aside
+            aria-live={planError ? "assertive" : "polite"}
+            className={`rounded-xl border px-4 py-3 text-sm ${
+              planError
+                ? "border-rose-100 bg-rose-50 text-rose-700"
+                : "border-emerald-100 bg-emerald-50 text-emerald-700"
+            }`}
+          >
+            {planError ?? "Plano encontrado com sucesso."}
+          </aside>
+        )}
       </div>
     </>
   );
