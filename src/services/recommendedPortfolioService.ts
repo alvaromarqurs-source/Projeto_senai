@@ -6,7 +6,9 @@ export interface RecommendedPortfolioRequest {
   email: string;
 }
 
-export type RecommendedPortfolioResponse = unknown;
+export interface RecommendedPortfolioResponse {
+  msg: string;
+}
 
 export class RecommendedPortfolioApiError extends Error {
   constructor(

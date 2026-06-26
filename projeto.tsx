@@ -7,6 +7,7 @@ import {
   CalendarClock,
   ChevronDown,
   CircleDollarSign,
+  FileText,
   GraduationCap,
   Goal,
   Home,
@@ -35,6 +36,10 @@ import {
   type OnboardingPayload,
 } from "./src/services/onboardingService";
 import { getRecommendedPortfolio } from "./src/services/recommendedPortfolioService";
+import {
+  parseRecommendedPortfolio,
+  type ParsedRecommendedPortfolio,
+} from "./src/utils/recommendedPortfolioParser";
 
 type PersonalData = {
   nome: string;
@@ -576,7 +581,8 @@ export default function InvestorProfileOnboarding() {
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [planLoading, setPlanLoading] = React.useState(false);
   const [planError, setPlanError] = React.useState<string | null>(null);
-  const [planSuccess, setPlanSuccess] = React.useState(false);
+  const [recommendedPortfolio, setRecommendedPortfolio] =
+    React.useState<ParsedRecommendedPortfolio | null>(null);
 
   React.useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(data));
@@ -608,7 +614,7 @@ export default function InvestorProfileOnboarding() {
     setErrors({});
     setSubmitError(null);
     setPlanError(null);
-    setPlanSuccess(false);
+    setRecommendedPortfolio(null);
   }, [currentStep]);
 
   React.useEffect(() => {
@@ -702,18 +708,18 @@ export default function InvestorProfileOnboarding() {
     const email = data.personal.email.trim();
 
     if (!email) {
-      setPlanSuccess(false);
+      setRecommendedPortfolio(null);
       setPlanError("Nao encontramos seu e-mail salvo. Volte aos dados pessoais e confirme o cadastro.");
       return;
     }
 
     setPlanLoading(true);
     setPlanError(null);
-    setPlanSuccess(false);
+    setRecommendedPortfolio(null);
 
     try {
-      await getRecommendedPortfolio(email);
-      setPlanSuccess(true);
+      const response = await getRecommendedPortfolio(email);
+      setRecommendedPortfolio(parseRecommendedPortfolio(response.msg));
     } catch (error) {
       setPlanError(
         error instanceof Error
@@ -786,7 +792,7 @@ export default function InvestorProfileOnboarding() {
         onViewPlan={handleViewPlan}
         planLoading={planLoading}
         planError={planError}
-        planSuccess={planSuccess}
+        recommendedPortfolio={recommendedPortfolio}
       />
     ),
   }[currentStep];
@@ -1164,14 +1170,14 @@ function StepSix({
   onViewPlan,
   planLoading,
   planError,
-  planSuccess,
+  recommendedPortfolio,
 }: {
   data: OnboardingData;
   onBack: () => void;
   onViewPlan: () => void;
   planLoading: boolean;
   planError: string | null;
-  planSuccess: boolean;
+  recommendedPortfolio: ParsedRecommendedPortfolio | null;
 }) {
   const nextSteps = ["Perfil criado", "Dados analisados", "Montagem da estratégia", "Recomendações personalizadas"];
 
@@ -1227,20 +1233,117 @@ function StepSix({
             {planLoading ? "Buscando plano..." : "Ver meu plano >"}
           </button>
         </div>
-        {(planError || planSuccess) && (
+        {planLoading && <PortfolioLoading />}
+        {planError && (
           <aside
-            aria-live={planError ? "assertive" : "polite"}
-            className={`rounded-xl border px-4 py-3 text-sm ${
-              planError
-                ? "border-rose-100 bg-rose-50 text-rose-700"
-                : "border-emerald-100 bg-emerald-50 text-emerald-700"
-            }`}
+            aria-live="assertive"
+            className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700"
           >
-            {planError ?? "Plano encontrado com sucesso."}
+            {planError}
           </aside>
+        )}
+        {recommendedPortfolio && (
+          <RecommendedPortfolioView portfolio={recommendedPortfolio} />
         )}
       </div>
     </>
+  );
+}
+
+function PortfolioLoading() {
+  return (
+    <section
+      aria-live="polite"
+      className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-5 py-8 text-center"
+    >
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
+        <span className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+      </div>
+      <h3 className="mx-auto mt-5 max-w-xl text-lg font-bold text-slate-950">
+        Aguarde um instante enquanto geramos sua carteira personalizada.
+      </h3>
+      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-600">
+        Estamos analisando seu perfil de investidor e selecionando os ativos mais adequados para você.
+      </p>
+    </section>
+  );
+}
+
+function RecommendedPortfolioView({
+  portfolio,
+}: {
+  portfolio: ParsedRecommendedPortfolio;
+}) {
+  return (
+    <section className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div>
+        <p className="text-xs font-bold uppercase text-indigo-600">
+          Plano personalizado
+        </p>
+        <h3 className="mt-2 text-2xl font-bold text-slate-950">Resumo da estratégia</h3>
+        <div className="mt-3 space-y-3 text-sm leading-7 text-slate-600">
+          {portfolio.resumo
+            ? portfolio.resumo.split(/\n{2,}/).map((paragraph) => (
+                <p key={paragraph} className="whitespace-pre-line">
+                  {paragraph}
+                </p>
+              ))
+            : (
+                <p>Estratégia recebida com sucesso.</p>
+              )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-xl font-bold text-slate-950">Carteira recomendada</h3>
+        {portfolio.investimentos.length > 0 ? (
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {portfolio.investimentos.map((investment, index) => (
+              <InvestmentCard
+                key={`${investment.nome}-${index}`}
+                investment={investment}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-600 whitespace-pre-line">
+            {portfolio.textoCarteira || "A carteira foi gerada, mas nao foi possivel separar os investimentos em cards."}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function InvestmentCard({
+  investment,
+}: {
+  investment: ParsedRecommendedPortfolio["investimentos"][number];
+}) {
+  return (
+    <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h4 className="text-base font-bold text-slate-950">
+        {investment.nome || "Investimento recomendado"}
+      </h4>
+      <div className="mt-4 rounded-xl bg-indigo-50 px-4 py-3">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase text-indigo-600">
+          <CircleDollarSign aria-hidden="true" className="h-4 w-4" />
+          Valor recomendado
+        </div>
+        <p className="mt-1 text-xl font-bold text-indigo-700">
+          {investment.valor || "Valor nao informado"}
+        </p>
+      </div>
+      <div className="mt-4 flex gap-3">
+        <FileText aria-hidden="true" className="mt-0.5 h-5 w-5 flex-none text-slate-400" />
+        <div>
+          <p className="text-sm font-bold text-slate-950">Motivo da escolha</p>
+          <p className="mt-1 whitespace-pre-line text-sm leading-6 text-slate-600">
+            {investment.motivo || "Motivo nao informado."}
+          </p>
+        </div>
+      </div>
+    </article>
   );
 }
 
